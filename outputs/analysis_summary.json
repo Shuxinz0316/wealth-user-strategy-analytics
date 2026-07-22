@@ -1,0 +1,34 @@
+{
+  "dataset": {
+    "users": 12000,
+    "experiment_users": 5793,
+    "dormant_share": 0.7163333333333334,
+    "cash_rich_noninvestors": 2351
+  },
+  "funnel": {
+    "visit_rate": 0.9438,
+    "account_open_rate": 0.3095,
+    "first_invest_rate": 0.3759,
+    "repeat_invest_rate": 0.7156,
+    "end_to_end_rate": 0.0833
+  },
+  "experiment": {
+    "control_purchase_rate": 0.035677352637021716,
+    "best_treatment": "product_recommendation",
+    "best_absolute_lift": 0.03382472205177497,
+    "best_p_value": 2.4808625262533573e-06,
+    "sample_size_per_arm_for_2pp_mde": 1691
+  },
+  "causal_inference": {
+    "did_active_rate_effect": 0.06557211925869359,
+    "did_p_value": 7.286766981633289e-10,
+    "did_ci_low": 0.04470774235029114,
+    "did_ci_high": 0.08643649616709605
+  },
+  "model": {
+    "churn_model_auc": 0.6575782946118204,
+    "test_churn_rate": 0.7473591549295775,
+    "top_20pct_precision": 0.8747252747252747,
+    "top_20pct_threshold": 0.8125552477819538
+  }
+}

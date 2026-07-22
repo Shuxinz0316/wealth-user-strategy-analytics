@@ -1,0 +1,32 @@
+                 Generalized Linear Model Regression Results                  
+==============================================================================
+Dep. Variable:       churned_next_90d   No. Observations:                 6692
+Model:                            GLM   Df Residuals:                     6675
+Model Family:                Binomial   Df Model:                           16
+Link Function:                  Logit   Scale:                          1.0000
+Method:                          IRLS   Log-Likelihood:                -3704.9
+Date:                Tue, 21 Jul 2026   Deviance:                       7409.8
+Time:                        19:15:35   Pearson chi2:                 6.67e+03
+No. Iterations:                     4   Pseudo R-squ. (CS):            0.05533
+Covariance Type:            nonrobust                                         
+===================================================================================================
+                                      coef    std err          z      P>|z|      [0.025      0.975]
+---------------------------------------------------------------------------------------------------
+const                               1.1652      0.110     10.593      0.000       0.950       1.381
+initial_cash_balance               -0.0057      0.029     -0.194      0.846      -0.063       0.052
+visits_lifetime                     0.0279      0.049      0.570      0.569      -0.068       0.124
+visits_90d                         -0.2813      0.038     -7.366      0.000      -0.356      -0.206
+content_views                      -0.0001      0.046     -0.003      0.998      -0.090       0.090
+buys_lifetime                      -0.2181      0.043     -5.096      0.000      -0.302      -0.134
+buys_90d                           -0.0277      0.034     -0.823      0.411      -0.094       0.038
+aum                                 0.0031      0.035      0.087      0.930      -0.066       0.073
+days_since_last_visit               0.1892      0.039      4.892      0.000       0.113       0.265
+acquisition_channel_organic        -0.1060      0.095     -1.117      0.264      -0.292       0.080
+acquisition_channel_paid_search     0.1272      0.101      1.256      0.209      -0.071       0.326
+acquisition_channel_referral       -0.0767      0.106     -0.724      0.469      -0.285       0.131
+acquisition_channel_social         -0.0002      0.104     -0.002      0.998      -0.204       0.203
+risk_profile_balanced              -0.0272      0.080     -0.340      0.734      -0.184       0.130
+risk_profile_cautious              -0.1342      0.082     -1.630      0.103      -0.295       0.027
+city_tier_T2                       -0.0647      0.070     -0.928      0.353      -0.201       0.072
+city_tier_T3+                      -0.0328      0.072     -0.456      0.649      -0.174       0.108
+===================================================================================================

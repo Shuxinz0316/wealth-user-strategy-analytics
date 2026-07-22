@@ -1,0 +1,10 @@
+risk_profile,experiment_group,purchase_rate,users
+aggressive,control,0.0440771349862259,363
+aggressive,education_content,0.058011049723756904,362
+aggressive,product_recommendation,0.07202216066481995,361
+balanced,control,0.04250295159386069,847
+balanced,education_content,0.06257378984651712,847
+balanced,product_recommendation,0.07210401891252956,846
+cautious,control,0.023480662983425413,724
+cautious,education_content,0.07479224376731301,722
+cautious,product_recommendation,0.0651872399445215,721
