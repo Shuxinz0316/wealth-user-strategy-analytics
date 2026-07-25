@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
 
 import matplotlib
 
@@ -15,11 +14,10 @@ import pandas as pd
 import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy.stats import norm
 from statsmodels.stats.power import NormalIndPower
 from statsmodels.stats.proportion import proportion_effectsize, proportions_ztest
 
-from .config import CHART_DIR, DB_PATH, RANDOM_SEED, ROOT, TABLE_DIR, ensure_directories
+from .config import BUSINESS_GUARDRAILS, CHART_DIR, DB_PATH, RANDOM_SEED, ROOT, TABLE_DIR, ensure_directories
 
 
 COLORS = ["#173F5F", "#20639B", "#3CAEA3", "#F6D55C", "#ED553B"]
@@ -69,6 +67,34 @@ def plot_retention(retention: pd.DataFrame) -> None:
     save_figure("retention_curve.png")
 
 
+def plot_business_scorecard(scorecard: pd.DataFrame) -> None:
+    labels = {
+        "control": "Control",
+        "education_content": "Education",
+        "product_recommendation": "Recommendation",
+    }
+    frame = scorecard.copy()
+    frame["label"] = frame.experiment_group.map(labels)
+    treatments = frame[frame.experiment_group != "control"]
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
+
+    sns.barplot(data=frame, x="label", y="purchase_rate", hue="label", palette=COLORS[:3], legend=False, ax=axes[0])
+    axes[0].yaxis.set_major_formatter(lambda x, _: f"{x:.0%}")
+    axes[0].set(title="30-day purchase", xlabel="", ylabel="Rate")
+
+    sns.barplot(data=frame, x="label", y="retained_aum_90d_per_user", hue="label", palette=COLORS[:3], legend=False, ax=axes[1])
+    axes[1].set(title="90-day retained AUM", xlabel="", ylabel="Per assigned user")
+
+    sns.barplot(data=treatments, x="label", y="cost_per_incremental_buyer", hue="label", palette=COLORS[1:3], legend=False, ax=axes[2])
+    axes[2].set(title="Acquisition efficiency", xlabel="", ylabel="Cost per incremental buyer")
+
+    for ax in axes:
+        ax.tick_params(axis="x", rotation=12)
+        ax.spines[["top", "right"]].set_visible(False)
+    fig.suptitle("Dormant-user experiment business scorecard", fontsize=15, y=1.02)
+    save_figure("experiment_business_scorecard.png")
+
+
 def analyze_experiment(experiment: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     control = experiment[experiment.experiment_group == "control"]
     rows = []
@@ -101,8 +127,22 @@ def analyze_experiment(experiment: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
     by_risk = (
         experiment.groupby(["risk_profile", "experiment_group"], as_index=False)
-        .agg(purchase_rate=("purchased_30d", "mean"), users=("user_id", "count"))
+        .agg(
+            purchase_rate=("purchased_30d", "mean"),
+            retention_30d_rate=("retained_30d", "mean"),
+            retained_aum_90d_per_user=("retained_aum_90d", "mean"),
+            redemption_rate_among_buyers=("redeemed_30d", lambda x: x.sum()),
+            complaint_rate=("complaint_30d", "mean"),
+            users=("user_id", "count"),
+        )
     )
+    purchases_by_risk = experiment.groupby(["risk_profile", "experiment_group"]).purchased_30d.sum()
+    by_risk["redemption_rate_among_buyers"] = [
+        redemptions / purchases_by_risk.loc[(risk, group)] if purchases_by_risk.loc[(risk, group)] else 0
+        for risk, group, redemptions in zip(
+            by_risk.risk_profile, by_risk.experiment_group, by_risk.redemption_rate_among_buyers
+        )
+    ]
     by_risk.to_csv(TABLE_DIR / "experiment_heterogeneity.csv", index=False)
 
     summary = experiment.groupby("experiment_group", as_index=False).agg(
@@ -223,7 +263,6 @@ def fit_churn_model(features: pd.DataFrame) -> dict:
     ax.set(title="Churn model: strongest standardized signals", xlabel="Log-odds coefficient", ylabel="")
     ax.spines[["top", "right"]].set_visible(False)
     save_figure("churn_model_coefficients.png")
-    (ROOT / "outputs" / "model_summary.txt").write_text(model.summary().as_text(), encoding="utf-8")
     return {
         "churn_model_auc": auc,
         "test_churn_rate": float(y_test.mean()),
@@ -238,9 +277,11 @@ def main() -> None:
     funnel = pd.read_csv(TABLE_DIR / "conversion_funnel.csv")
     retention = pd.read_csv(TABLE_DIR / "retention.csv")
     churn = pd.read_csv(TABLE_DIR / "churn_features.csv")
+    business_scorecard = pd.read_csv(TABLE_DIR / "experiment_results.csv")
     plot_funnel(funnel)
     plot_channel_conversion(funnel)
     plot_retention(retention)
+    plot_business_scorecard(business_scorecard)
 
     with sqlite3.connect(DB_PATH) as connection:
         experiment = pd.read_sql_query(
@@ -255,6 +296,8 @@ def main() -> None:
     lifecycle = pd.read_csv(TABLE_DIR / "user_lifecycle.csv")
     segments = pd.read_csv(TABLE_DIR / "user_segmentation.csv")
     funnel_total = funnel[funnel.acquisition_channel == "ALL"].iloc[0]
+    product = business_scorecard[business_scorecard.experiment_group == "product_recommendation"].iloc[0]
+    education = business_scorecard[business_scorecard.experiment_group == "education_content"].iloc[0]
     summary = {
         "dataset": {
             "users": int(funnel_total.registered_users),
@@ -270,6 +313,41 @@ def main() -> None:
             "end_to_end_rate": float(funnel_total.end_to_end_rate),
         },
         "experiment": experiment_summary,
+        "business_decision": {
+            "product_recommendation": {
+                "incremental_buyers_per_10k": float(product.incremental_buyers_per_10k),
+                "incremental_retained_aum_90d_per_10k": float(product.incremental_retained_aum_90d_per_10k),
+                "cost_per_incremental_buyer": float(product.cost_per_incremental_buyer),
+                "redemption_rate_among_buyers": float(product.redemption_rate_among_buyers),
+                "complaint_rate": float(product.complaint_rate),
+                "suitability_pass_rate": float(product.suitability_pass_rate),
+                "guardrail_pass": bool(
+                    product.complaint_rate <= BUSINESS_GUARDRAILS["max_complaint_rate"]
+                    and product.redemption_rate_among_buyers
+                    <= BUSINESS_GUARDRAILS["max_redemption_rate_among_buyers"]
+                    and product.suitability_pass_rate >= BUSINESS_GUARDRAILS["min_suitability_pass_rate"]
+                ),
+            },
+            "education_content": {
+                "incremental_buyers_per_10k": float(education.incremental_buyers_per_10k),
+                "incremental_retained_aum_90d_per_10k": float(education.incremental_retained_aum_90d_per_10k),
+                "cost_per_incremental_buyer": float(education.cost_per_incremental_buyer),
+                "redemption_rate_among_buyers": float(education.redemption_rate_among_buyers),
+                "complaint_rate": float(education.complaint_rate),
+                "guardrail_pass": bool(
+                    education.complaint_rate <= BUSINESS_GUARDRAILS["max_complaint_rate"]
+                    and education.redemption_rate_among_buyers
+                    <= BUSINESS_GUARDRAILS["max_redemption_rate_among_buyers"]
+                ),
+            },
+            "guardrail_thresholds": BUSINESS_GUARDRAILS,
+            "next_routing_test": {
+                "cautious": "education_content",
+                "balanced": "product_recommendation",
+                "aggressive": "education_content",
+            },
+            "rollout_recommendation": "do_not_scale_global_recommendation; validate_segment_routing_with_holdout",
+        },
         "causal_inference": did_summary,
         "model": model_summary,
     }

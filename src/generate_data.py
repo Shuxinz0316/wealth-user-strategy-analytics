@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import math
-from collections import defaultdict
-
 import numpy as np
 import pandas as pd
 
-from .config import EXPERIMENT_DATE, N_USERS, OBSERVATION_END, RANDOM_SEED, RAW_DIR, ensure_directories
+from .config import (
+    CAMPAIGN_UNIT_COST,
+    EXPERIMENT_DATE,
+    N_USERS,
+    OBSERVATION_END,
+    RANDOM_SEED,
+    RAW_DIR,
+    RISK_LEVEL_LIMIT,
+    ensure_directories,
+)
 
 
 def sigmoid(x: np.ndarray | float) -> np.ndarray | float:
@@ -203,6 +209,54 @@ def generate_experiment(
     p_retained = sigmoid(-1.85 + 1.05 * purchased + retention_bonus + 0.10 * eligible.pre_90d_visits.to_numpy())
     retained = rng.binomial(1, p_retained)
 
+    # Keep business guardrails on a separate RNG so they do not change the core experiment effects.
+    business_rng = np.random.default_rng(RANDOM_SEED + 101)
+    compatible_products = {
+        "cautious": [1, 2, 3, 7],
+        "balanced": [1, 2, 3, 4, 7, 8],
+        "aggressive": [1, 2, 3, 4, 5, 6, 7, 8],
+    }
+    recommended_product_id: list[int | None] = []
+    for group, risk in zip(eligible.experiment_group, eligible.risk_profile):
+        recommended_product_id.append(
+            int(business_rng.choice(compatible_products[risk])) if group == "product_recommendation" else None
+        )
+    product_risk_level = {1: 1, 2: 2, 3: 2, 4: 3, 5: 4, 6: 4, 7: 2, 8: 2}
+    suitability_passed = np.array(
+        [
+            1 if pid is None else int(product_risk_level[pid] <= RISK_LEVEL_LIMIT[risk])
+            for pid, risk in zip(recommended_product_id, eligible.risk_profile)
+        ]
+    )
+
+    redemption_probability = np.select(
+        [
+            eligible.experiment_group == "education_content",
+            eligible.experiment_group == "product_recommendation",
+        ],
+        [0.08, 0.16],
+        default=0.12,
+    )
+    redeemed = purchased * business_rng.binomial(1, redemption_probability)
+    redeemed_fraction = business_rng.uniform(0.30, 0.75, len(eligible))
+    redeemed_amount = (amount * redeemed * redeemed_fraction).round(2)
+
+    retention_90d_bonus = np.where(
+        eligible.experiment_group == "education_content",
+        0.30,
+        np.where(eligible.experiment_group == "product_recommendation", 0.08, 0.0),
+    )
+    p_retained_90d = sigmoid(-2.30 + 0.90 * purchased + 0.75 * retained + retention_90d_bonus)
+    retained_90d = business_rng.binomial(1, p_retained_90d)
+    retained_aum_90d = ((amount - redeemed_amount) * retained_90d).round(2)
+
+    complaint_probability = eligible.experiment_group.map(
+        {"control": 0.001, "education_content": 0.002, "product_recommendation": 0.006}
+    ).to_numpy()
+    complaint = eligible.delivered.to_numpy() * business_rng.binomial(1, complaint_probability)
+    unit_cost = eligible.experiment_group.map(CAMPAIGN_UNIT_COST).to_numpy()
+    campaign_cost = (eligible.delivered.to_numpy() * unit_cost).round(2)
+
     return pd.DataFrame(
         {
             "user_id": eligible.user_id.to_numpy(),
@@ -213,7 +267,15 @@ def generate_experiment(
             "clicked_7d": clicked,
             "purchased_30d": purchased,
             "purchase_amount_30d": amount,
+            "redeemed_30d": redeemed,
+            "redeemed_amount_30d": redeemed_amount,
             "retained_30d": retained,
+            "retained_90d": retained_90d,
+            "retained_aum_90d": retained_aum_90d,
+            "complaint_30d": complaint,
+            "recommended_product_id": pd.array(recommended_product_id, dtype="Int64"),
+            "suitability_passed": suitability_passed,
+            "campaign_cost": campaign_cost,
             "pre_90d_visits": eligible.pre_90d_visits.to_numpy(),
             "pre_90d_trades": eligible.pre_90d_trades.to_numpy(),
             "days_since_last_visit": eligible.days_since_last_visit.to_numpy(),

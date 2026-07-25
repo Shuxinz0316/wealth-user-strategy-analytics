@@ -17,6 +17,7 @@ QUERIES = {
     "experiment_results": "05_experiment_results.sql",
     "monthly_kpis": "06_monthly_kpis.sql",
     "churn_features": "07_churn_features.sql",
+    "strategy_routing": "08_strategy_routing.sql",
 }
 
 
@@ -35,4 +36,3 @@ def run_queries() -> None:
 
 if __name__ == "__main__":
     run_queries()
-

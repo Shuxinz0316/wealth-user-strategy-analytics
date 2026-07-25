@@ -19,6 +19,36 @@
     "best_p_value": 2.4808625262533573e-06,
     "sample_size_per_arm_for_2pp_mde": 1691
   },
+  "business_decision": {
+    "product_recommendation": {
+      "incremental_buyers_per_10k": 338.2,
+      "incremental_retained_aum_90d_per_10k": 593042.68,
+      "cost_per_incremental_buyer": 34.19,
+      "redemption_rate_among_buyers": 0.1418,
+      "complaint_rate": 0.0104,
+      "suitability_pass_rate": 1.0,
+      "guardrail_pass": false
+    },
+    "education_content": {
+      "incremental_buyers_per_10k": 306.1,
+      "incremental_retained_aum_90d_per_10k": 613685.19,
+      "cost_per_incremental_buyer": 14.18,
+      "redemption_rate_among_buyers": 0.1016,
+      "complaint_rate": 0.001,
+      "guardrail_pass": true
+    },
+    "guardrail_thresholds": {
+      "max_complaint_rate": 0.01,
+      "max_redemption_rate_among_buyers": 0.2,
+      "min_suitability_pass_rate": 1.0
+    },
+    "next_routing_test": {
+      "cautious": "education_content",
+      "balanced": "product_recommendation",
+      "aggressive": "education_content"
+    },
+    "rollout_recommendation": "do_not_scale_global_recommendation; validate_segment_routing_with_holdout"
+  },
   "causal_inference": {
     "did_active_rate_effect": 0.06557211925869359,
     "did_p_value": 7.286766981633289e-10,

@@ -1,9 +1,0 @@
-product_id,product_name,product_type,risk_level,expected_return,minimum_investment
-1,Cash Plus,money_market,1,0.021,1
-2,Stable Income,bond_fund,2,0.038,100
-3,Short Duration,bond_fund,2,0.034,100
-4,Balanced Growth,mixed_fund,3,0.061,100
-5,China Equity Select,equity_fund,4,0.095,100
-6,Global Index,equity_fund,4,0.087,100
-7,Retirement Annuity,insurance,2,0.032,1000
-8,Bank Wealth 90D,bank_wealth,2,0.036,10000
