@@ -1,6 +1,6 @@
 # Wealth User Strategy Analytics
 
-> 互联网财富平台新用户转化与沉睡用户激活：从 SQL 诊断、用户分层到 A/B 测试、DID 和流失预测的完整策略分析项目。
+> 互联网财富平台新用户转化与沉睡用户激活：从 SQL 诊断、用户分层到 A/B 测试、DID 和流失预测的策略分析项目。
 
 
 ![Conversion funnel](outputs/charts/conversion_funnel.png)
